@@ -1,0 +1,35 @@
+<?php
+// $Id: custom_pagers.install,v 1.1 2006/12/08 04:10:27 eaton Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function custom_pagers_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("CREATE TABLE {custom_pager} (
+        pid int unsigned NOT NULL auto_increment,
+        view varchar(255) NOT NULL default '',
+        args varchar(255) NOT NULL default '',
+        position varchar(16) NOT NULL default 'bottom',
+        node_type varchar(255) default '',
+        PRIMARY KEY (pid)
+      ) /*!40100 DEFAULT CHARACTER SET UTF8 */ ");
+      break;
+    case 'pgsql':
+      db_query("CREATE TABLE {custom_pager} (
+        pid serial CHECK (pid >= 0),
+        view varchar(255) NOT NULL default '',
+        args varchar(255) NOT NULL default '',
+        position varchar(16) NOT NULL default 'bottom',
+        node_type varchar(255) default ''
+      )");
+      db_query("CREATE INDEX {custom_pagers}_pid_idx ON {custom_pagers} (pid)");
+      break;
+  }
+}
+
+function custom_pagers_uninstall() {
+  db_query('DROP TABLE {custom_pager}');
+}

@@ -1,0 +1,4 @@
+; $Id: custom_pagers.info,v 1.1 2006/12/08 04:10:27 eaton Exp $
+name = Custom Pagers
+description = Allows administrators to define custom pagers a per-node-type basis.
+dependencies = views
