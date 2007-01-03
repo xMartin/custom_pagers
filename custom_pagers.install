@@ -1,5 +1,5 @@
 <?php
-// $Id: custom_pagers.install,v 1.1 2006/12/08 04:10:27 eaton Exp $
+// $Id: custom_pagers.install,v 1.2 2007/01/03 18:36:11 eaton Exp $
 
 /**
  * Implementation of hook_install().
@@ -10,6 +10,7 @@ function custom_pagers_install() {
     case 'mysqli':
       db_query("CREATE TABLE {custom_pager} (
         pid int unsigned NOT NULL auto_increment,
+        title varchar(255) NOT NULL default '',
         view varchar(255) NOT NULL default '',
         args varchar(255) NOT NULL default '',
         position varchar(16) NOT NULL default 'bottom',
@@ -20,6 +21,7 @@ function custom_pagers_install() {
     case 'pgsql':
       db_query("CREATE TABLE {custom_pager} (
         pid serial CHECK (pid >= 0),
+        title varchar(255) NOT NULL default '',
         view varchar(255) NOT NULL default '',
         args varchar(255) NOT NULL default '',
         position varchar(16) NOT NULL default 'bottom',

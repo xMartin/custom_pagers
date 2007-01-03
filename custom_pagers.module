@@ -1,5 +1,5 @@
 <?php
-// $Id: custom_pagers.module,v 1.1 2006/12/08 04:10:27 eaton Exp $
+// $Id: custom_pagers.module,v 1.2 2007/01/03 18:36:11 eaton Exp $
 
 /**
  * Implementation of hook_menu().
@@ -45,44 +45,32 @@ function custom_pagers_perm() {
 
 function custom_pagers_nodeapi($node, $op, $teaser, $page) {
   switch ($op) {
-    case 'insert':
-    case 'update':
-    case 'delete':
-      // for now, it's easier just to blow away the caching.
-      // We'll figure out a more efficient way later.
-      cache_clear_all('custom_pagers_', 'cache', TRUE);
-      break;
     case 'view':
       if ($teaser == false) {
-        if ($pager = _custom_pagers_load_for_type($node->type)) {
-          if ($pager->position != 'block') {
+        $pagers = _custom_pagers_load_all_pagers();
+        foreach ($pagers as $pager) {
+          if ($pager->position != 'block' && strpos($pager->node_type, $node->type) !== FALSE) {
             $nav_array = custom_pager_build_nav($pager, $node);
             $output = theme('custom_pager', $nav_array, $node, $pager);
+            switch ($pager->position) {
+              case 'top':
+                $node->content['custom_pager_top'][$pager->pid] = array('#value' => $output);
+                break;
+              case 'bottom':
+                $node->content['custom_pager_bottom'][$pager->pid] = array('#value' => $output);
+                break;
+              case 'both':
+                $node->content['custom_pager_top'][$pager->pid] = array('#value' => $output);
+                $node->content['custom_pager_bottom'][$pager->pid] = array('#value' => $output);
+                break;
+            }
           }
         }
-        switch ($pager->position) {
-          case 'top':
-            $node->content['custom_pager_top'] = array(
-              '#value' => $output,
-              '#weight' => -100,
-            );
-            break;
-          case 'bottom':
-            $node->content['custom_pager_bottom'] = array(
-              '#value' => $output,
-              '#weight' => 100,
-            );
-            break;
-          case 'both':
-            $node->content['custom_pager_top'] = array(
-              '#value' => $output,
-              '#weight' => -100,
-            );
-            $node->content['custom_pager_bottom'] = array(
-              '#value' => $output,
-              '#weight' => 100,
-            );
-            break;
+        if (isset($node->content['custom_pager_top'])) {
+          $node->content['custom_pager_top']['#weight'] = -100;
+        }
+        if (isset($node->content['custom_pager_bottom'])) {
+          $node->content['custom_pager_bottom']['#weight'] = 100;
         }
       }
     break;
@@ -96,21 +84,24 @@ function custom_pagers_nodeapi($node, $op, $teaser, $page) {
  */
 function custom_pagers_block($op = 'list', $delta = 0) {
   if ($op == 'list') {
-    $blocks[0]['info'] = t('Custom pager');
+    $pagers = _custom_pagers_load_all_pagers();
+    foreach ($pagers as $pager) {
+      if ($pager->position == 'block') {
+        $blocks[$pager->pid]['info'] = $pager->title;
+      }
+    }
     return $blocks;
   }
   else if ($op == 'view' && arg(0) == 'node' && is_numeric(arg(1))) {
     $node = node_load(arg(1));
-    if ($pager = _custom_pagers_load_for_type($node->type)) {
-      if ($pager->position == 'block') {
+    $pagers = _custom_pagers_load_all_pagers();
+    if ($pager = $pagers[$delta]) {
+      if ($pager->position == 'block' && strpos($pager->node_type, $node->type) !== FALSE) {
         $nav_array = custom_pager_build_nav($pager, $node);
-        $output = theme('custom_pager', $nav_array, $node, $pager);
+        $block['subject'] = $pager->title;
+        $block['content'] = theme('custom_pager', $nav_array, $node, $pager);
+        return $block;
       }
-    }
-    if ($output) {
-      $block['subject'] = t('Custom pager');
-      $block['content'] = theme('custom_pager', $nav_array, $node, $pager);
-      return $block;
     }
   }
 }
@@ -119,17 +110,18 @@ function custom_pagers_block($op = 'list', $delta = 0) {
 function custom_pagers_page() {
   $pagers = _custom_pagers_load_all_pagers(TRUE);
 
-  $header = array(t('node type'), '');
+  $header = array(t('Title'), t('Node types'), '');
 
   $rows = array();
   foreach ($pagers as $pager) {
     $row = array();
+    $row[] = $pager->title;
     $row[] = $pager->node_type;
     $row[] =  l(t('edit'), 'admin/build/custom_pagers/edit/' . $pager->pid);
     $rows[] = $row;
   }
   if (count($rows) == 0) {
-    $rows[] = array(array('data' => t('No custom pagers have been defined.'), 'colspan' => 2));
+    $rows[] = array(array('data' => t('No custom pagers have been defined.'), 'colspan' => 3));
   }
   
   $rows[] = array(array('data' => l(t('Add a new custom pager'), 'admin/build/custom_pagers/add'), 'colspan' => 2));
@@ -149,6 +141,13 @@ function custom_pagers_form() {
       '#value' => $pid,
     );
   }
+
+  $form['title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Title'),
+    '#required' => TRUE,
+    '#default_value' => $pid ? $pager->title : '',
+  );
 
   $form['node_type'] = array(
     '#type' => 'select',
@@ -206,19 +205,16 @@ function custom_pagers_form() {
     '#default_value' => $pid ? $pager->args : NULL
   );
 
-  $substitutions = custom_pagers_substitutions('help');
-  $header = array(t('Placeholder'), t('Replacement value'));
-  $rows = array();
-  foreach ($substitutions as $sub => $help) {
-    $row = array();
-    $row[] = $sub;
-    $row[] = $help;
-    $rows[] = $row;
-  }
-  $helptext = theme('table', $header, $rows, array('class' => 'description'), "The following placeholder values can be used in the view arguments. They will be replaced with the appropriate values.");
-
   $form['help'] = array(
-    '#value' => $helptext,
+    '#type' => 'fieldset',
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#title' => t('Placeholder tokens'),
+    '#description' => t("The following placeholder tokens can be used when passing arguments into the view. Each will be replaced with the correct values at runtime."),
+  );
+
+  $form['help']['tokens'] = array(
+    '#value' => theme('token_help', 'node'),
   );
 
   $form['buttons']['submit'] = array(
@@ -233,14 +229,6 @@ function custom_pagers_form() {
   }
 
   return $form;
-}
-
-function custom_pagers_form_validate($form_id, $form_values) {
-  $path_count = count(explode("\n", $form_values['paths']));
-  $title_count = count(explode("\n", $form_values['titles']));
-  if ($title_count != $path_count) {
-    form_set_error(t('Every link path must have a matching title. There are !paths paths, and !titles titles.', array('!paths' => $path_count, '!titles' => $title_count)));
-  }
 }
 
 function custom_pagers_form_submit($form_id, $form_values) {
@@ -262,22 +250,6 @@ function _custom_pagers_load_pager($pid) {
   return $pager;
 }
 
-function _custom_pagers_load_for_type($type) {
-  static $pagers;
-  if (!isset($pagers)) {
-    $pagers = array();
-    $sql = "SELECT * FROM {custom_pager}";
-    $result = db_query($sql);
-    while ($pager = db_fetch_object($result)) {
-      $types = explode(',', $pager->node_type);
-      foreach ($types as $node_type) {
-        $pagers[$node_type] = $pager;
-      }
-    }
-  }
-  return $pagers[$type];
-}
-
 function _custom_pagers_load_all_pagers($refresh = FALSE) {
   static $pagers;
   if ($refresh || !isset($pagers)) {
@@ -295,15 +267,15 @@ function _custom_pagers_load_all_pagers($refresh = FALSE) {
 function _custom_pagers_save_pager($pager = NULL) {
   if (isset($pager->pid)) {
     $sql  = "UPDATE {custom_pager} SET";
-    $sql .= " view = '%s', args = '%s', node_type = '%s', position = '%s'";
+    $sql .= " title = '%s', view = '%s', args = '%s', node_type = '%s', position = '%s'";
     $sql .= " WHERE pid = %d";
-    db_query($sql, $pager->view, $pager->args, $pager->node_type, $pager->position, $pager->pid);
+    db_query($sql, $pager->title, $pager->view, $pager->args, $pager->node_type, $pager->position, $pager->pid);
   }
   else {
     $sql  = "INSERT INTO {custom_pager}";
-    $sql .= " (view, args, position, node_type)";
-    $sql .= " VALUES ('%s',  '%s',  '%s', '%s')";
-    db_query($sql, $pager->view, $pager->args, $pager->position, $pager->node_type);
+    $sql .= " (title, view, args, position, node_type)";
+    $sql .= " VALUES ('%s', '%s',  '%s',  '%s', '%s')";
+    db_query($sql, $pager->title, $pager->view, $pager->args, $pager->position, $pager->node_type);
   }
 }
 
@@ -312,81 +284,20 @@ function _custom_pagers_delete_pager($pid) {
   db_query($sql, $pid);
 }
 
-function _custom_pagers_replace_placeholders($node, $haystack) {
-  $replacements = custom_pagers_substitutions('data', $node);
-
-  $placeholders = array_keys($replacements);
-  $values = array_values($replacements);
-
-  $result = str_replace($placeholders, $values, $haystack);
-  return $result;
-}
-
-function custom_pagers_substitutions($mode = 'help', $node = NULL) {
-  global $user;
-  if ($mode == 'data') {
-    $terms = taxonomy_node_get_terms($node->nid);
-    if (count($terms)) {
-      $top_term = $term[0]->tid;
-    }
-    $replacements = array(
-      '%author_id' => $node->uid,
-      '%author_name' => $node->name,
-      '%node_id' => $node->nid,
-      '%node_type' => $node->type,
-      '%top_term'  => $top_term,
-      '%created_d' => date('d', $node->created),
-      '%created_D' => date('D', $node->created),
-      '%created_j' => date('j', $node->created),
-      '%created_l' => date('l', $node->created),
-      '%created_F' => date('F', $node->created),
-      '%created_m' => date('m', $node->created),
-      '%created_M' => date('M', $node->created),
-      '%created_n' => date('n', $node->created),
-      '%created_y' => date('y', $node->created),
-      '%created_Y' => date('Y', $node->created),
-    );
-  }
-  elseif ($mode == 'help') {
-    $replacements = array(
-      '%author_id' => "The node author's uid",
-      '%author_name' => "The node author's name",
-      '%node_id' => "The current node's id",
-      '%node_type' => "The current node's type",
-      '%top_term'  => "The ID of the node's highest weighted taxonomy term",
-      '%created_j' => "Node creation date: Date as number",
-      '%created_d' => "Node creation date: Date as zero-padded number",
-      '%created_D' => "Node creation date: Day of week as three-letter abbreviation",
-      '%created_l' => "Node creation date: Day of week as full word",
-      '%created_F' => "Node creation date: Day of week as number",
-      '%created_m' => "Node creation date: Month as full word",
-      '%created_M' => "Node creation date: Month as zero-padded number",
-      '%created_n' => "Node creation date: Month as three-letter abbreviation",
-      '%created_y' => "Node creation date: Year as four-digit number",
-      '%created_Y' => "Node creation date: Year as two-digit number",
-    );
-   }
-   return $replacements;
-}
-
-
 function custom_pager_build_nav($pager, $node) {
-  $cache = cache_get('custom_pagers_' . $pager->pid);
-  if ($cache) {
-    $list = unserialize($cache->data);
-  }
-  else {
     $list = array();
     $args = explode("\n", $pager->args);
-    $args = _custom_pagers_replace_placeholders($node, $args);
+    $args = token_replace($args, 'node', $node);
     $view = views_get_view($pager->view);
     $tmp = views_build_view('items', $view, $args);
-    foreach($tmp['items'] as $item) {
-      $list[] = $item->nid;
+    if (count($tmp['items'])) {
+      foreach($tmp['items'] as $item) {
+        $list[] = $item->nid;
+      }
     }
-    cache_set('custom_pagers_' . $pager->pid, 'cache', serialize($list));
-  }
-
+    else {
+      $list = array();
+    }
   return pager_entries_by_val($node->nid, $list);
 }
 
@@ -400,7 +311,7 @@ function pager_entries_by_val($value, $list) {
     }
   }
   if (!isset($key)) {
-    $key = 0;
+    $key = -1;
   }
   return pager_entries_by_key($key, $list);
 }
@@ -410,9 +321,9 @@ function pager_entries_by_key($key, $list, $increment = 1) {
   $nav = array(
     'first' => $list[0],
     'prev' => $list[max($key - $increment, 0)],
-    'current_index' => $key,
     'next' => $list[min($key + $increment, (count($list) - 1))],
-    'last' => $list[count($list) - 1]
+    'last' => $list[count($list) - 1],
+    'full_list' => $list
   );
 
   foreach($nav as $k => $v) {
@@ -420,20 +331,35 @@ function pager_entries_by_key($key, $list, $increment = 1) {
       $nav[$k] = NULL;
     }
   }
+  
+  $nav['current_index'] = $key;
   return $nav;
 }
 
 function theme_custom_pager($nav_array, $node, $pager) {
-  $output .= "<div class='custom-pager custom-pager-$pager->pid'>";
-  if ($nav_array['prev']) {
-    $prev_node = node_load($nav_array['prev']);
-    $output .= "<ul><li class='previous'>" . l($prev_node->title, "node/$prev_node->nid") . "</li>";
+  if (is_numeric($nav_array['prev'])) {
+    $prev = node_load($nav_array['prev']);
   }
-  if ($nav_array['next']) {
-    $next_node = node_load($nav_array['next']);
-    $output .= "<ul><li class='next'>" . l($next_node->title, "node/$next_node->nid") . "</li>";
+  if (is_numeric($nav_array['next'])) {
+    $next = node_load($nav_array['next']);
   }
-  $output .= "</div>";
-  
+
+  if ($prev || $next) {
+    $output .= '<div class="custom-pager custom-pager-' . $node->type . '">';
+
+    if ($prev) {
+      $output .= l(t('‹ ') . $prev->title, 'node/'. $prev->nid, array('class' => 'pager-previous', 'title' => $prev->title));
+    }
+    if ($prev && $next) {
+      // Word break (a is an inline element)
+      $output .= ' ';
+    }
+    if ($next) {
+      $output .= l($next->title . t(' ›'), 'node/'. $next->nid, array('class' => 'pager-next', 'title' => $next->title));
+    }
+
+    $output .= '</div>';
+  }
+
   return $output;
 }
