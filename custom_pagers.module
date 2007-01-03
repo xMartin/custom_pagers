@@ -1,5 +1,5 @@
 <?php
-// $Id: custom_pagers.module,v 1.2 2007/01/03 18:36:11 eaton Exp $
+// $Id: custom_pagers.module,v 1.3 2007/01/03 21:39:27 eaton Exp $
 
 /**
  * Implementation of hook_menu().
@@ -213,9 +213,16 @@ function custom_pagers_form() {
     '#description' => t("The following placeholder tokens can be used when passing arguments into the view. Each will be replaced with the correct values at runtime."),
   );
 
-  $form['help']['tokens'] = array(
-    '#value' => theme('token_help', 'node'),
-  );
+  if (module_exists('token')) {
+    $form['help']['tokens'] = array(
+      '#value' => theme('token_help', 'node'),
+    );
+  }
+  else {
+    $form['help']['#description'] = t("To use dynamic placeholder tokens in your pager arguments (the ID of the current node or currently logged in user, for example), download and install the <a href='@token'>Token module</a> from Drupal.org.", array('@token' => 'http://www.drupal.org/project/token'));
+    $form['help']['#collapsible'] = FALSE;
+    $form['help']['#collapsed'] = FALSE;
+  }
 
   $form['buttons']['submit'] = array(
     '#type' => 'submit',
