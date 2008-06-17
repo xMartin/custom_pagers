@@ -1,4 +1,4 @@
-; $Id: custom_pagers.info,v 1.4 2007/06/18 22:53:35 dww Exp $
+; $Id: custom_pagers.info,v 1.5 2008/06/17 20:47:05 eaton Exp $
 name = Custom Pagers
+core = 6.x
 description = Allows administrators to define custom pagers for navigation in lists of nodes.
-dependencies = views
