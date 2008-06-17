@@ -1,5 +1,5 @@
 <?php
-// $Id: custom_pagers.module,v 1.5 2008/06/17 20:47:05 eaton Exp $
+// $Id: custom_pagers.module,v 1.6 2008/06/17 21:20:32 eaton Exp $
 
 /**
  * Implementation of hook_menu().
@@ -244,8 +244,10 @@ function custom_pager_build_nav($pager, $node) {
       $view->is_cacheable = FALSE;
       $view->execute();
 
-      foreach($view->result as $result) {
-        $list[] = $result->nid;
+      if (isset($view->result)) {
+        foreach($view->result as $result) {
+          $list[] = $result->nid;
+        }
       }
     }
 
