@@ -1,5 +1,5 @@
 <?php
-// $Id: custom_pagers.install,v 1.3 2008/06/17 20:47:05 eaton Exp $
+// $Id: custom_pagers.install,v 1.3.2.1 2008/12/24 00:13:12 eaton Exp $
 
 /**
  * Implementation of hook_install().
@@ -72,13 +72,6 @@ function custom_pagers_schema() {
         'size' => 'tiny',
         'description' => t("A boolean flag indicating that this {custom_pager} should be displayed in reverse order.")
       ),
-      'cache_list' => array(
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-        'size' => 'tiny',
-        'description' => t("A boolean flag indicating that this {custom_pager}'s list of nodes should be cached.")
-      ),
     ),
     'primary key' => array('pid'),
   );
@@ -115,6 +108,16 @@ function custom_pagers_update_2() {
       db_add_column($ret, 'custom_pager', 'reverse_list', 'smallint', array('not null' => TRUE, 'default' => 0));
       break;
   }
+  return $ret;
+}
+
+
+/**
+ * Kill the cache flag as it's not actually that helpful.
+ */
+function custom_pagers_update_6104() {
+  $ret = array();
+  db_drop_field($ret, 'custom_pager', 'cache_list');
   return $ret;
 }
 

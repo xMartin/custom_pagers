@@ -1,5 +1,5 @@
 <?php
-// $Id: custom_pagers.module,v 1.6 2008/06/17 21:20:32 eaton Exp $
+// $Id: custom_pagers.module,v 1.6.2.1 2008/12/24 00:13:12 eaton Exp $
 
 /**
  * Implementation of hook_menu().
@@ -89,14 +89,6 @@ function custom_pagers_nodeapi(&$node, $op, $teaser, $page) {
           $node->content['custom_pager_bottom']['#weight'] = 100;
         }
       }
-      break;
-    case 'update':
-    case 'insert':
-    case 'delete':
-      // If a user makes any changes to a node, we want to make sure that
-      // their pager cache is cleared. It's ugly, but it should prevent some
-      // of the nastier cache-went-stale issues.
-      unset($_SESSION['custom_pagers']);
       break;
   }
 }
@@ -190,33 +182,6 @@ function custom_pager_build_nav($pager, $node) {
   static $pager_cache;
   $list = array();
 
-  // First we check the static function cache for this pager.
-  // If it's already been built for this page-load, we'll use it.
-  if (isset($pager_cache[$pager->pid])) {
-    $list = explode(',', $pager_cache[$pager->pid]);
-  }
-
-  // If it doesn't give us a list, and the pager is set to cache its
-  // data, we'll try to load from the current user's session. We do it
-  // that way rather than via cache_set() because of the potential for
-  // node_access violations. Each user's node list *could* be different.
-  if (empty($list) && $pager->cache_list) {
-    if ($cache = $_SESSION['custom_pagers'][$pager->pid]) {
-      // We should probably set the pager cache lifetime to a configurable
-      // value. If any nodes drop through the cracks, users won't see the
-      // pager when they visit them. Five minutes should keep the pager from
-      // thrashing. In the future, we'll want to develop a better strategy
-      // for this.
-      if ($cache['timestamp'] < (time() - 300)) {
-        unset($_SESSION['custom_pagers'][$pager->pid]);
-      }
-      else {
-        $list = explode(',', $_SESSION['custom_pagers'][$pager->pid]['data']);
-      }
-    }
-  }
-
-  // If $list is still empty, neither caching strategy produced a list.
   // Let's build it from scratch!
   if (empty($list)) {
     // If the pager uses PHP, execute the PHP and run with the list.
@@ -256,18 +221,10 @@ function custom_pager_build_nav($pager, $node) {
     }
   }
 
-  // If we get to this point, we want to cache what we've made.
-  if ($pager->cache_list) {
-    $_SESSION['custom_pagers'][$pager->pid]['data'] = implode(',', $list);
-    $_SESSION['custom_pagers'][$pager->pid]['timestamp'] = time();
-  }
-  $pager_cache[$pager->pid] = $list;
-
   return pager_entries_by_val($node->nid, $list);
 }
 
 // Helper functions to pull proper entries from a list of nids.
-
 function pager_entries_by_val($value, $list) {
   $list = array_values($list);
   foreach ($list as $k => $v) {
