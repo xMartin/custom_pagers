@@ -1,5 +1,10 @@
 <?php
-// $Id: custom_pagers.module,v 1.6.2.1 2008/12/24 00:13:12 eaton Exp $
+// $Id: custom_pagers.module,v 1.6.2.2 2008/12/24 00:58:21 eaton Exp $
+
+/**
+ * @file
+ * Allows administrators to define context-sensitive previous/next pagers for any node type.
+ */
 
 /**
  * Implementation of hook_menu().
@@ -61,7 +66,7 @@ function custom_pagers_nodeapi(&$node, $op, $teaser, $page) {
     case 'view':
       // We want to make sure we don't try to output when print.module is active.
       // It's a bit of special casing but it doesn't do much harm.
-      if ($teaser == false && empty($node->printing)) {
+      if ($teaser == FALSE && empty($node->printing)) {
         $pagers = _custom_pagers_load_all_pagers();
         foreach ($pagers as $pager) {
           if ($pager->position != 'block' && _custom_pagers_visibility($pager, $node)) {
@@ -142,7 +147,7 @@ function _custom_pagers_load_all_pagers($refresh = FALSE) {
     $result = db_query($sql);
 
     $pagers = array();
-    while($pager = db_fetch_object($result)) {
+    while ($pager = db_fetch_object($result)) {
       $pagers[$pager->pid] = $pager;
     }
   }
@@ -172,7 +177,8 @@ function _custom_pagers_visibility($pager, $node) {
     $result = eval(trim($pager->visibility_php));
     $visible = ($result == TRUE);
     ob_end_clean();
-  } elseif (!empty($pager->node_type)) {
+  }
+  elseif (!empty($pager->node_type)) {
     $visible = (strpos($pager->node_type, $node->type) !== FALSE);
   }
   return $visible;
@@ -210,7 +216,7 @@ function custom_pager_build_nav($pager, $node) {
       $view->execute();
 
       if (isset($view->result)) {
-        foreach($view->result as $result) {
+        foreach ($view->result as $result) {
           $list[] = $result->nid;
         }
       }
@@ -248,7 +254,7 @@ function pager_entries_by_key($key, $list, $increment = 1) {
     'full_list' => $list
   );
 
-  foreach($nav as $k => $v) {
+  foreach ($nav as $k => $v) {
     if ($nav[$k] == $list[$key]) {
       $nav[$k] = NULL;
     }
@@ -264,9 +270,9 @@ function custom_pagers_preprocess_custom_pager(&$vars) {
   $pager = $vars['pager'];
   $nav = $vars['nav_array'];
 
-  $vars['previous'] = !empty($nav['prev']) ? l(t('‹ previous'), 'node/'. $nav['prev']) : '';
+  $vars['previous'] = !empty($nav['prev']) ? l('‹ ' . t('previous'), 'node/'. $nav['prev']) : '';
   $vars['key'] = t('@count of @count_total', array('@count' => ($nav['current_index'] + 1), '@count_total' => count($nav['full_list'])));
-  $vars['next'] =  !empty($nav['next']) ? l(t('next ›'), 'node/'. $nav['next']) : '';
+  $vars['next'] =  !empty($nav['next']) ? l(t('next') . ' ›', 'node/'. $nav['next']) : '';
 
   $vars['suggestions'][] = "custom-pager-{$vars['position']}";
   $vars['suggestions'][] = "custom-pager-$node->type";
