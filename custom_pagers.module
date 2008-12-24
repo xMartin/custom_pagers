@@ -1,5 +1,5 @@
 <?php
-// $Id: custom_pagers.module,v 1.6.2.2 2008/12/24 00:58:21 eaton Exp $
+// $Id: custom_pagers.module,v 1.6.2.3 2008/12/24 01:02:36 eaton Exp $
 
 /**
  * @file
@@ -205,6 +205,12 @@ function custom_pager_build_nav($pager, $node) {
       // Get arguments for the view.
       if (isset($pager->args)) {
         $args = explode("\n", $pager->args);
+
+        // Trim extra white space from arguments
+        foreach ($args as $key => $value) {
+          $args[$key] = trim($value);
+        }
+
         if (module_exists('token')) {
           $args = token_replace($args, 'node', $node);
         }
