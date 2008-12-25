@@ -1,5 +1,5 @@
 <?php
-// $Id: custom_pagers.module,v 1.6.2.3 2008/12/24 01:02:36 eaton Exp $
+// $Id: custom_pagers.module,v 1.6.2.4 2008/12/25 18:48:43 eaton Exp $
 
 /**
  * @file
@@ -201,31 +201,8 @@ function custom_pager_build_nav($pager, $node) {
       }
       ob_end_clean();
     }
-    elseif (module_exists('views') && $view = views_get_view($pager->view)) {
-      // Get arguments for the view.
-      if (isset($pager->args)) {
-        $args = explode("\n", $pager->args);
-
-        // Trim extra white space from arguments
-        foreach ($args as $key => $value) {
-          $args[$key] = trim($value);
-        }
-
-        if (module_exists('token')) {
-          $args = token_replace($args, 'node', $node);
-        }
-        $view->set_arguments($args);
-      }
-
-      // Make sure the query is not cached
-      $view->is_cacheable = FALSE;
-      $view->execute();
-
-      if (isset($view->result)) {
-        foreach ($view->result as $result) {
-          $list[] = $result->nid;
-        }
-      }
+    elseif ($results = custom_pagers_get_list_from_view($pager, $node)) {
+      $list = $results;
     }
 
     if ($pager->reverse_list) {
@@ -270,6 +247,37 @@ function pager_entries_by_key($key, $list, $increment = 1) {
   return $nav;
 }
 
+function custom_pagers_get_list_from_view($pager, $node) {
+  if ($view = views_get_view($pager->view)) {
+    $display = $view->add_display('custom_pagers_simple');
+  
+    $view->set_display($display);
+    $view->display_handler->set_option('style_plugin', 'custom_pagers_php_array');
+    $view->display_handler->set_option('items_per_page', 0);
+
+    // Get arguments for the view.
+    if (!empty($pager->args)) {
+      $view_args = array_map('trim', explode("\n", $pager->args));
+      if (module_exists('token')) {
+        $args = token_replace($args, 'node', $node);
+      }
+    }
+    else {
+      $args = array();
+    }
+
+    // Make sure the query is not cached
+    $view->is_cacheable = FALSE;
+
+    // Get the results.
+    $result = $view->execute_display($display, $args);
+  }
+  else {
+    $result = FALSE;
+  }
+  return $result;
+}
+
 function custom_pagers_preprocess_custom_pager(&$vars) {
   drupal_add_css(drupal_get_path('module', 'custom_pagers') .'/custom_pagers.css');
   $node = $vars['node'];
@@ -285,4 +293,14 @@ function custom_pagers_preprocess_custom_pager(&$vars) {
   $vars['suggestions'][] = "custom-pager-$node->type-{$vars['position']}";
   $vars['suggestions'][] = "custom-pager-$pager->pid";
   $vars['suggestions'][] = "custom-pager-$pager->pid-{$vars['position']}";
+}
+
+/**
+ * Implementation of hook_views_api().
+ */
+function custom_pagers_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'custom_pagers') . '/views',
+  );
 }
