@@ -1,5 +1,5 @@
 <?php
-// $Id: custom_pagers.install,v 1.3.2.2 2008/12/24 00:58:21 eaton Exp $
+// $Id: custom_pagers.install,v 1.3.2.3 2009/03/31 15:56:43 eaton Exp $
 
 /**
  * @file
@@ -86,33 +86,37 @@ function custom_pagers_schema() {
 
 function custom_pagers_update_1() {
   $ret = array();
-  switch ($GLOBALS['db_type']) {
-    case 'mysql':
-    case 'mysqli':
-      $ret[] = update_sql("ALTER TABLE {custom_pager} ADD list_php text");
-      $ret[] = update_sql("ALTER TABLE {custom_pager} ADD visibility_php text");
-      break;
-    case 'pgsql':
-      db_add_column($ret, 'custom_pager', 'list_php', 'text', array('default' => ''));
-      db_add_column($ret, 'custom_pager', 'visibility_php', 'text', array('default' => ''));
-      break;
-  }
+  db_add_field($ret, 'custom_pager', 'list_php', array(
+    'type' => 'text',
+    'not null' => FALSE,
+    'size' => 'big',
+    'description' => t('Raw PHP to populate this {custom_pager}.'),
+  ));
+  db_add_field($ret, 'custom_pager', 'visibility_php', array(
+    'type' => 'text',
+    'not null' => FALSE,
+    'size' => 'big',
+    'description' => t('Raw PHP to determine when the {custom_pager} should be displayed.'),
+  ));
   return $ret;
 }
 
 function custom_pagers_update_2() {
   $ret = array();
-  switch ($GLOBALS['db_type']) {
-    case 'mysql':
-    case 'mysqli':
-      $ret[] = update_sql("ALTER TABLE {custom_pager} ADD cache_list tinyint NOT NULL default 0");
-      $ret[] = update_sql("ALTER TABLE {custom_pager} ADD reverse_list tinyint NOT NULL default 0");
-      break;
-    case 'pgsql':
-      db_add_column($ret, 'custom_pager', 'cache_list', 'smallint', array('not null' => TRUE, 'default' => 0));
-      db_add_column($ret, 'custom_pager', 'reverse_list', 'smallint', array('not null' => TRUE, 'default' => 0));
-      break;
-  }
+  db_add_field($ret, 'custom_pager', 'cache_list', array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'default' => 0,
+    'size' => 'tiny',
+    'description' => t("A boolean flag indicating that this {custom_pager}'s list of nodes should be cached.")
+  ));
+  db_add_field($ret, 'custom_pager', 'reverse_list', array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'default' => 0,
+    'size' => 'tiny',
+    'description' => t("A boolean flag indicating that this {custom_pager} should be displayed in reverse order.")
+  ));
   return $ret;
 }
 
