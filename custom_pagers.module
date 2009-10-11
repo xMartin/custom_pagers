@@ -257,9 +257,19 @@ function custom_pagers_get_list_from_view($pager, $node) {
 
     // Get arguments for the view.
     if (!empty($pager->args)) {
-      $args = array_map('trim', explode("\n", $pager->args));
-      if (module_exists('token')) {
-        $args = token_replace($args, 'node', $node);
+      // eval PHP code as arguments
+      // TODO: implement better check if PHP code should be used, maybe even set up a variable
+      if (strpos($pager->args, '<?php') !== FALSE) {
+        $args = drupal_eval($pager->args);
+        if (!is_array($args)) {
+          $args = array($args);
+        }
+      }
+      else {
+        $args = array_map('trim', explode("\n", $pager->args));
+        if (module_exists('token')) {
+          $args = token_replace($args, 'node', $node);
+        }
       }
     }
     else {

@@ -155,7 +155,7 @@ function custom_pagers_form(&$form_state, $pid = NULL) {
       '#type' => 'textarea',
       '#title' => t('View arguments'),
       '#required' => FALSE,
-      '#description' => t('A return-delimited list of arguments to pass into the selected view. If Token.module is enabled, placeholder tokens like [type] and [author] can be used.'),
+      '#description' => t('A return-delimited list of arguments to pass into the selected view. If Token.module is enabled, placeholder tokens like [type] and [author] can be used. Alternatively, use a snippet of PHP that evaluates to either a single argument or an array of arguments (enter PHP code between %php).', array('%php' => '<?php ?>')),
       '#default_value' => $pid ? $pager->args : NULL
     );
 
